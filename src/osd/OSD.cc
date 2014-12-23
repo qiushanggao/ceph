@@ -2886,7 +2886,7 @@ void OSD::build_past_intervals_parallel()
       PG *pg = i->second;
 
       epoch_t start, end;
-      if (!pg->_calc_past_interval_range(&start, &end))
+      if (!pg->_calc_past_interval_range(&start, &end, superblock.oldest_map))
         continue;
 
       dout(10) << pg->info.pgid << " needs " << start << "-" << end << dendl;
