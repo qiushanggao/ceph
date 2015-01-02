@@ -48,7 +48,7 @@ void JournalTool::usage()
     << "      --type=<UPDATE|OPEN|SESSION...><\n"
     << "      --frag=<ino>.<frag> [--dname=<dentry string>]\n"
     << "      --client=<session id integer>\n"
-    << "    <effect>: [get|apply|recover_dentries|splice]\n"
+    << "    <effect>: [get|apply|recover_dentries|reset_sessiontable|splice]\n"
     << "    <output>: [summary|binary|json] [--path <path>]\n"
     << "\n"
     << "Options:\n"
@@ -263,7 +263,7 @@ int JournalTool::main_event(std::vector<const char*> &argv)
   std::vector<const char*>::iterator arg = argv.begin();
 
   std::string command = *(arg++);
-  if (command != "get" && command != "apply" && command != "splice" && command != "recover_dentries") {
+  if (command != "get" && command != "apply" && command != "splice" && command != "recover_dentries" && command != "reset_sessiontable") {
     derr << "Unknown argument '" << command << "'" << dendl;
     usage();
     return -EINVAL;
@@ -382,6 +382,8 @@ int JournalTool::main_event(std::vector<const char*> &argv)
         }
       }
     }
+  } else if (command == "reset_sessiontable") {
+    r = reset_session_table();
   } else if (command == "splice") {
     r = js.scan();
     if (r) {
@@ -1133,6 +1135,71 @@ int JournalTool::consume_inos(const std::set<inodeno_t> &inos)
         r = r ? r : read_r;
         continue;
       }
+    }
+  }
+
+  return r;
+}
+
+
+/**
+ * Clear all MDSs' session tables
+ */
+int JournalTool::reset_session_table()
+{
+  int r = 0;
+  std::set<mds_rank_t> in_ranks;
+  mdsmap->get_mds_set(in_ranks);
+
+  for (std::set<mds_rank_t>::iterator rank_i = in_ranks.begin();
+      rank_i != in_ranks.end(); ++rank_i)
+  {
+    // Read the sessiontable version
+    bufferlist sessiontable_bl;
+    std::ostringstream oss;
+    oss << "mds" << *rank_i << "_sessionmap";
+    const std::string sessiontable_oid = oss.str();
+    int read_r = io.read(sessiontable_oid, sessiontable_bl, (1<<22), 0);
+
+    version_t new_version;
+    if (read_r == -ENOENT) {
+      new_version = 1;
+      fdout(4) << "missing sessionmap object " << sessiontable_oid
+        << ", rewriting at version " << new_version << dendl;
+    } else if (read_r == 0) {
+
+      bufferlist::iterator q = sessiontable_bl.begin();
+      uint64_t pre;
+      ::decode(pre, q);
+      if (pre == (uint64_t)-1) {
+        // 'new' format
+        DECODE_START_LEGACY_COMPAT_LEN(3, 3, 3, q);
+        ::decode(new_version, q);
+        new_version++;
+        DECODE_FINISH(q);
+      } else {
+        // 'old' format
+        new_version = pre + 1;
+      }
+      // FIXME: catch decode errors
+    } else {
+      fdout(0) << "error reading sessionmap object " << sessiontable_oid
+        << ": " << cpp_strerror(read_r) << dendl;
+      r = r ? r : read_r;
+      continue;
+    }
+
+    fdout(4) << "writing blank sessiontable with version " << new_version << dendl;
+    bufferlist new_bl;
+    ::encode((uint64_t)-1, new_bl);
+    ::encode(new_version, new_bl);
+
+    int write_r = io.write_full(sessiontable_oid, new_bl);
+    if (write_r != 0) {
+      fderr << "error writing sessionmap object " << sessiontable_oid
+        << ": " << cpp_strerror(write_r) << dendl;
+      r = r ? r : write_r;
+      continue;
     }
   }
 

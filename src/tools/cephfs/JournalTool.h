@@ -60,6 +60,7 @@ class JournalTool : public MDSUtility
         bool const dry_run,
         std::set<inodeno_t> *consumed_inos);
     int replay_offline(EMetaBlob const &metablob, bool const dry_run);
+    int reset_session_table();
 
     // Splicing
     int erase_region(JournalScanner const &jp, uint64_t const pos, uint64_t const length);
