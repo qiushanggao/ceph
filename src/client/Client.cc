@@ -10390,7 +10390,7 @@ bool Client::is_quota_bytes_exceeded(Inode *in, uint64_t new_bytes)
     quota_info_t *quota = &in->quota;
     nest_info_t *rstat = &in->rstat;
 
-    if (quota->max_bytes && (rstat->rbytes + new_bytes) > quota->max_bytes)
+    if (quota->max_bytes && ((rstat->rbytes + new_bytes) > (uint64_t)quota->max_bytes))
       return true;
 
     in = get_quota_root(in);
