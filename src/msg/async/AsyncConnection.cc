@@ -300,7 +300,6 @@ int AsyncConnection::_try_send(bufferlist send_bl, bool send)
     return -EINTR;
   }
 
-  int r = 0;
   uint64_t sended = 0;
   list<bufferptr>::const_iterator pb = outcoming_bl.buffers().begin();
   uint64_t left_pbrs = outcoming_bl.buffers().size();
@@ -321,7 +320,7 @@ int AsyncConnection::_try_send(bufferlist send_bl, bool send)
       size--;
     }
 
-    r = do_sendmsg(msg, msglen, false);
+    int r = do_sendmsg(msg, msglen, false);
     if (r < 0)
       return r;
 
