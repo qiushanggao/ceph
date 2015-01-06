@@ -766,6 +766,7 @@ inline ostream& operator<<(ostream& out, const osd_stat_t& s) {
 #define PG_STATE_BACKFILL_TOOFULL (1<<21) // backfill can't proceed: too full
 #define PG_STATE_RECOVERY_WAIT (1<<22) // waiting for recovery reservations
 #define PG_STATE_UNDERSIZED    (1<<23) // pg acting < pool size
+#define PG_STATE_PEERED        (1<<24) // peered, cannot go active, can recover
 
 std::string pg_state_string(int state);
 
@@ -1347,6 +1348,7 @@ struct pg_stat_t {
   utime_t last_fresh;   // last reported
   utime_t last_change;  // new state != previous state
   utime_t last_active;  // state & PG_STATE_ACTIVE
+  utime_t last_peered;  // state & PG_STATE_ACTIVE || state & PG_STATE_ACTIVE
   utime_t last_clean;   // state & PG_STATE_CLEAN
   utime_t last_unstale; // (state & PG_STATE_STALE) == 0
   utime_t last_undegraded; // (state & PG_STATE_DEGRADED) == 0
@@ -1378,6 +1380,7 @@ struct pg_stat_t {
   vector<int32_t> blocked_by;  ///< osds on which the pg is blocked
 
   utime_t last_became_active;
+  utime_t last_became_peered;
 
   /// true if num_objects_dirty is not accurate (because it was not
   /// maintained starting from pool creation)
