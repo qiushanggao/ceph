@@ -501,7 +501,9 @@ void MDS::command_get_subtrees(Formatter *f)
       f->dump_bool("is_auth", dir->is_auth());
       f->dump_int("auth_first", dir->get_dir_auth().first);
       f->dump_int("auth_second", dir->get_dir_auth().second);
-      f->dump_stream("dir") << *dir;
+      f->open_object_section("dir");
+      dir->dump(f);
+      f->close_section();
     }
     f->close_section();
   }
