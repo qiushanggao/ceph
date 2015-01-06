@@ -733,7 +733,7 @@ int JournalTool::scavenge_dentries(
     if (r == -ENOENT) {
       fdout(4) << "root does not exist, will create" << dendl;
       write_root_ino = true;
-    } else if (r == 0) {
+    } else if (r >= 0) {
       InodeStore old_inode;
       fdout(4) << "root exists, will modify (" << old_root_ino_bl.length() << ")" << dendl;
       bufferlist::iterator inode_bl_iter = old_root_ino_bl.begin(); 
