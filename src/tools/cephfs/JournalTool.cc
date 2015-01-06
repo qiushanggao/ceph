@@ -1166,22 +1166,27 @@ int JournalTool::reset_session_table()
       new_version = 1;
       fdout(4) << "missing sessionmap object " << sessiontable_oid
         << ", rewriting at version " << new_version << dendl;
-    } else if (read_r == 0) {
+    } else if (read_r >= 0) {
 
       bufferlist::iterator q = sessiontable_bl.begin();
       uint64_t pre;
-      ::decode(pre, q);
-      if (pre == (uint64_t)-1) {
-        // 'new' format
-        DECODE_START_LEGACY_COMPAT_LEN(3, 3, 3, q);
-        ::decode(new_version, q);
-        new_version++;
-        DECODE_FINISH(q);
-      } else {
-        // 'old' format
-        new_version = pre + 1;
+      try {
+        ::decode(pre, q);
+        if (pre == (uint64_t)-1) {
+          // 'new' format
+          DECODE_START_LEGACY_COMPAT_LEN(3, 3, 3, q);
+          ::decode(new_version, q);
+          new_version++;
+          DECODE_FINISH(q);
+        } else {
+          // 'old' format
+          new_version = pre + 1;
+        }
+      } catch (buffer::error &e) {
+        fderr << "sessionmap " << sessiontable_oid << " is corrupt: '" << e.what()
+          << "' and will be rewritten at version 1" << dendl;
+        new_version = 1;
       }
-      // FIXME: catch decode errors
     } else {
       fdout(0) << "error reading sessionmap object " << sessiontable_oid
         << ": " << cpp_strerror(read_r) << dendl;
@@ -1192,7 +1197,9 @@ int JournalTool::reset_session_table()
     fdout(4) << "writing blank sessiontable with version " << new_version << dendl;
     bufferlist new_bl;
     ::encode((uint64_t)-1, new_bl);
+    ENCODE_START(3, 3, new_bl);
     ::encode(new_version, new_bl);
+    ENCODE_FINISH(new_bl);
 
     int write_r = io.write_full(sessiontable_oid, new_bl);
     if (write_r != 0) {
